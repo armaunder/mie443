@@ -31,7 +31,7 @@ uint8_t frontstate = bumper [kobuki_msgs::BumperEvent::CENTER];
 uint8_t rightstate = bumper [kobuki_msgs::BumperEvent::RIGHT];
 
 float minLaserDist = std::numeric_limits<float>::infinity();
-int32_t nLasers = 0, desiredNLasers=0, desiredAngle = 10;
+int32_t nLasers = 0, desiredNLasers=0, desiredAngle = 5;
 
 void bumperCallback(const kobuki_msgs::BumperEvent::ConstPtr& msg)
 {
@@ -111,7 +111,7 @@ int main(int argc, char **argv)
                 
                 angular = M_PI/4;
                 linear = 0.0;
-                ROS_INFO("Condition 0");
+                ROS_INFO("Close to wall");
                 vel.angular.z = angular;
                 vel.linear.x = linear;
                 vel_pub.publish(vel);
@@ -125,24 +125,51 @@ int main(int argc, char **argv)
         else if(!any_bumper_pressed && minLaserDist > 0.7) {
             angular = 0.0;
             linear = 0.25;
-            ROS_INFO("Condition 1");
+            ROS_INFO("Far from wall");
         }
         else if(!any_bumper_pressed && minLaserDist > 0.5) {
             angular = 0.0;
             linear = 0.1;
-            ROS_INFO("Condition 2");
+            ROS_INFO("Medium from wall");
         }
-            
             /*while(yaw-oldyaw < M_PI/2) {
                 linear = 0.0;
                 angular = M_PI/12;
                 ROS_INFO("Condition 3");
             }*/
           
+        else if (any_bumper_pressed){
+            ROS_INFO("AHHHHHHHHHH HIT A WALL AAHHHHHHHHHH");
+            float distance_travelled = 0.0;
+            float start_x = posX;
+            float start_y = posY;
+
+            while (distance_travelled < 0.5) {
+                angular = 0.0;
+                linear = -0.1;
+                vel.angular.z = angular;
+                vel.linear.x = linear;
+                vel_pub.publish(vel);
+                ros::spinOnce();
+                distance_travelled = sqrt(pow((posX-start_x), 2.0) + pow ((posY-start_y), 2.0));
+                ROS_INFO ("Yaw%f oldyaw:%f, angular:%f, Linear:%f, distance travelled: %f", yaw, oldyaw, angular, linear, distance_travelled);
+                loop_rate.sleep();
+            }
+            oldyaw = yaw;
+            while (abs(yaw - oldyaw) < M_PI/5) {
+                angular = M_PI/4;
+                linear = 0.0;
+                vel.angular.z = angular;
+                vel.linear.x = linear;
+                vel_pub.publish(vel);
+                ROS_INFO ("Yaw%f oldyaw:%f, angular:%f, Linear:%f", yaw, oldyaw, angular, linear);
+                ros::spinOnce();
+                loop_rate.sleep();
+            }
+            ROS_INFO("Hit wall...");
+        }
         else {
-            angular = 0.0;
-            linear = 0.0;
-            ROS_INFO("STOPPED...");
+            ROS_INFO ("I Dont Know what to do");
             break;
         }
 
