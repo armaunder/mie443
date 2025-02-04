@@ -171,10 +171,6 @@ int main(int argc, char **argv)
             vel.angular.z = 0;
             vel.linear.x = default_linear;
             vel_pub.publish(vel);
-            process_step++;
-        }
-        // process_step = 2: stop when bumper is triggered
-        if (process_step == 2){
             if (any_bumper_pressed){
                 vel.angular.z = 0;
                 vel.linear.x = 0;
@@ -182,67 +178,45 @@ int main(int argc, char **argv)
                 process_step++;
             }
         }
-        // process_step = 3: start moving backwards
-        if (process_step == 3){
+        // process_step = 2: move backwards by 0.25 units
+        else if (process_step == 2){
             vel.angular.z = 0;
-            vel.linear.x = -default_linear;
+            vel.linear.x = -0.25;
             vel_pub.publish(vel);
-            prev_posX = posX;
-            prev_posY = posY;
+        }
+        // process_step = 3: record start yaw before turning
+        else if (process_step == 3){
+            start_yaw = yaw;
             process_step++;
         }
-        // process_step = 4: move backwards by 0.2 units
-        if (process_step == 4){
-            if (sqrt(pow(posX-prev_posX,2)+pow(posY-prev_posY,2)) >= 0.2){
-                vel.angular.z = 0;
-                vel.linear.x = 0;
-                vel_pub.publish(vel);
-                process_step++;
-            }
-        }
-        // process_step = 5: start turning
-        if (process_step == 5){
-            vel.angular.z = default_angular*sweeping_direction;
-            vel.linear.x = 0;
-            vel_pub.publish(vel);
-            process_step++;
-        }
-        // process_step = 6: turn until angle achieved
-        if (process_step == 6){
+        // process_step = 4: turn until angle achieved
+        else if (process_step == 4){
             if (abs(yaw-start_yaw) >= M_PI/2){
                 vel.angular.z = 0;
                 vel.linear.x = 0;
                 vel_pub.publish(vel);
                 process_step++;
             }
-        }
-        // process_step = 7: start moving forward
-        if (process_step == 7){
-            vel.angular.z = 0;
-            vel.linear.x = default_linear;
-            vel_pub.publish(vel);
-            prev_posX = posX;
-            prev_posY = posY;
-            process_step++;
-        }
-        // process_step = 8: stop when distance achieved
-        if (process_step == 8){
-            if (sqrt(pow(posX-prev_posX,2)+pow(posY-prev_posY,2)) >= 0.5){
-                vel.angular.z = 0;
+            else {
+                vel.angular.z = default_angular*sweeping_direction;
                 vel.linear.x = 0;
                 vel_pub.publish(vel);
-                process_step++;
             }
         }
-        // process_step = 9: start turning
-        if (process_step == 9){
-            vel.angular.z = default_angular*sweeping_direction;
-            vel.linear.x = 0;
+        // process_step = 5: move forward a little
+        else if (process_step == 5){
+            vel.angular.z = 0;
+            vel.linear.x = 0.5;
             vel_pub.publish(vel);
             process_step++;
         }
-        // process_step = 10: turn until angle achieved
-        if (process_step == 10){
+        // process_step = 6: record start yaw before turning
+        else if (process_step == 6){
+            start_yaw = yaw;
+            process_step++;
+        }
+        // process_step = 7: turn until angle achieved
+        else if (process_step == 7){
             if (abs(yaw-start_yaw) >= M_PI/2){
                 vel.angular.z = 0;
                 vel.linear.x = 0;
@@ -252,12 +226,12 @@ int main(int argc, char **argv)
             }
         }
 
-        if (any_bumper_pressed && process_step != 2){
-            vel.angular.z = 0;
-            vel.linear.x = 0;
-            vel_pub.publish(vel);
-            process_step++;
-        }
+        // if (any_bumper_pressed && process_step != 2){
+        //     vel.angular.z = 0;
+        //     vel.linear.x = 0;
+        //     vel_pub.publish(vel);
+        //     process_step++;
+        // }
         
 
 
