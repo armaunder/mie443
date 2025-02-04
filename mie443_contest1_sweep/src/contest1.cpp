@@ -25,18 +25,27 @@ float angle_max = 0.0;
 float angle_increment = 0.0;
 float ranges = 0;
 
+
+uint8_t map[974][974] = {};
+
 uint8_t bumper[3] = {kobuki_msgs::BumperEvent::RELEASED, kobuki_msgs::BumperEvent::RELEASED, kobuki_msgs::BumperEvent::RELEASED};
 uint8_t leftstate = bumper[kobuki_msgs::BumperEvent::LEFT];
 uint8_t frontstate = bumper [kobuki_msgs::BumperEvent::CENTER];
 uint8_t rightstate = bumper [kobuki_msgs::BumperEvent::RIGHT];
 
 float minLaserDist = std::numeric_limits<float>::infinity();
-int32_t nLasers = 0, desiredNLasers=0, desiredAngle = 5;
+int32_t nLasers = 0, desiredNLasers=0, desiredAngle = 10;
 
 void bumperCallback(const kobuki_msgs::BumperEvent::ConstPtr& msg)
 {
 	//
     bumper[msg->bumper] = msg->state;
+}
+
+void updateMapping(){
+    map[int(posX)][int(posY)] = 1;
+
+
 }
 
 void laserCallback(const sensor_msgs::LaserScan::ConstPtr& msg)
@@ -90,7 +99,14 @@ int main(int argc, char **argv)
     float angular = 0.0;
     float linear = 0.0;
    
-
+    uint8_t process_step = 1;
+    uint8_t sweeping_direction = 1;
+    float default_linear = 0.1;
+    float default_angular = 0.1;
+    float start_yaw = 0.0;
+    float start_posX = 0.0;
+    float start_posY = 0.0;
+    uint8_t flag_count = 0;
     while(ros::ok() && secondsElapsed <= 480) {
         ros::spinOnce();
        
@@ -111,7 +127,7 @@ int main(int argc, char **argv)
                 
                 angular = M_PI/4;
                 linear = 0.0;
-                ROS_INFO("Close to wall");
+                ROS_INFO("Condition 0");
                 vel.angular.z = angular;
                 vel.linear.x = linear;
                 vel_pub.publish(vel);
@@ -125,51 +141,18 @@ int main(int argc, char **argv)
         else if(!any_bumper_pressed && minLaserDist > 0.7) {
             angular = 0.0;
             linear = 0.25;
-            ROS_INFO("Far from wall");
+            ROS_INFO("Condition 1");
         }
         else if(!any_bumper_pressed && minLaserDist > 0.5) {
             angular = 0.0;
             linear = 0.1;
-            ROS_INFO("Medium from wall");
+            ROS_INFO("Condition 2");
         }
-            /*while(yaw-oldyaw < M_PI/2) {
-                linear = 0.0;
-                angular = M_PI/12;
-                ROS_INFO("Condition 3");
-            }*/
           
-        else if (any_bumper_pressed){
-            ROS_INFO("AHHHHHHHHHH HIT A WALL AAHHHHHHHHHH");
-            float distance_travelled = 0.0;
-            float start_x = posX;
-            float start_y = posY;
-
-            while (distance_travelled < 0.5) {
-                angular = 0.0;
-                linear = -0.1;
-                vel.angular.z = angular;
-                vel.linear.x = linear;
-                vel_pub.publish(vel);
-                ros::spinOnce();
-                distance_travelled = sqrt(pow((posX-start_x), 2.0) + pow ((posY-start_y), 2.0));
-                ROS_INFO ("Yaw%f oldyaw:%f, angular:%f, Linear:%f, distance travelled: %f", yaw, oldyaw, angular, linear, distance_travelled);
-                loop_rate.sleep();
-            }
-            oldyaw = yaw;
-            while (abs(yaw - oldyaw) < M_PI/5) {
-                angular = M_PI/4;
-                linear = 0.0;
-                vel.angular.z = angular;
-                vel.linear.x = linear;
-                vel_pub.publish(vel);
-                ROS_INFO ("Yaw%f oldyaw:%f, angular:%f, Linear:%f", yaw, oldyaw, angular, linear);
-                ros::spinOnce();
-                loop_rate.sleep();
-            }
-            ROS_INFO("Hit wall...");
-        }
         else {
-            ROS_INFO ("I Dont Know what to do");
+            angular = 0.0;
+            linear = 0.0;
+            ROS_INFO("STOPPED...");
             break;
         }
 
@@ -182,6 +165,102 @@ int main(int argc, char **argv)
         // The last thing to do is to update the timer.
         secondsElapsed = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-start).count();
         loop_rate.sleep();
+
+        // process_step = 1: go forward
+        if (process_step == 1){
+            vel.angular.z = 0;
+            vel.linear.x = default_linear;
+            vel_pub.publish(vel);
+            process_step++;
+        }
+        // process_step = 2: stop when bumper is triggered
+        if (process_step == 2){
+            if (any_bumper_pressed){
+                vel.angular.z = 0;
+                vel.linear.x = 0;
+                vel_pub.publish(vel);
+                process_step++;
+            }
+        }
+        // process_step = 3: start moving backwards
+        if (process_step == 3){
+            vel.angular.z = 0;
+            vel.linear.x = -default_linear;
+            vel_pub.publish(vel);
+            prev_posX = posX;
+            prev_posY = posY;
+            process_step++;
+        }
+        // process_step = 4: move backwards by 0.2 units
+        if (process_step == 4){
+            if (sqrt(pow(posX-prev_posX,2)+pow(posY-prev_posY,2)) >= 0.2){
+                vel.angular.z = 0;
+                vel.linear.x = 0;
+                vel_pub.publish(vel);
+                process_step++;
+            }
+        }
+        // process_step = 5: start turning
+        if (process_step == 5){
+            vel.angular.z = default_angular*sweeping_direction;
+            vel.linear.x = 0;
+            vel_pub.publish(vel);
+            process_step++;
+        }
+        // process_step = 6: turn until angle achieved
+        if (process_step == 6){
+            if (abs(yaw-start_yaw) >= M_PI/2){
+                vel.angular.z = 0;
+                vel.linear.x = 0;
+                vel_pub.publish(vel);
+                process_step++;
+            }
+        }
+        // process_step = 7: start moving forward
+        if (process_step == 7){
+            vel.angular.z = 0;
+            vel.linear.x = default_linear;
+            vel_pub.publish(vel);
+            prev_posX = posX;
+            prev_posY = posY;
+            process_step++;
+        }
+        // process_step = 8: stop when distance achieved
+        if (process_step == 8){
+            if (sqrt(pow(posX-prev_posX,2)+pow(posY-prev_posY,2)) >= 0.5){
+                vel.angular.z = 0;
+                vel.linear.x = 0;
+                vel_pub.publish(vel);
+                process_step++;
+            }
+        }
+        // process_step = 9: start turning
+        if (process_step == 9){
+            vel.angular.z = default_angular*sweeping_direction;
+            vel.linear.x = 0;
+            vel_pub.publish(vel);
+            process_step++;
+        }
+        // process_step = 10: turn until angle achieved
+        if (process_step == 10){
+            if (abs(yaw-start_yaw) >= M_PI/2){
+                vel.angular.z = 0;
+                vel.linear.x = 0;
+                vel_pub.publish(vel);
+                sweeping_direction *= -1;
+                process_step = 1;
+            }
+        }
+
+        if (any_bumper_pressed && process_step != 2){
+            vel.angular.z = 0;
+            vel.linear.x = 0;
+            vel_pub.publish(vel);
+            process_step++;
+        }
+        
+
+
     }
 
     return 0;
