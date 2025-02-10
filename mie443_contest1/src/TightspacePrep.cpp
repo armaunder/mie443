@@ -34,7 +34,7 @@ uint8_t frontstate = bumper [kobuki_msgs::BumperEvent::CENTER];
 uint8_t rightstate = bumper [kobuki_msgs::BumperEvent::RIGHT];
 
 float minLaserDist = std::numeric_limits<float>::infinity();
-int32_t nLasers = 0, desiredNLasers=0, desiredAngle = 10;
+int32_t nLasers = 0, desiredNLasers = 0, desiredAngle = 10;
 
 void bumperCallback(const kobuki_msgs::BumperEvent::ConstPtr& msg)
 {
@@ -44,7 +44,6 @@ void bumperCallback(const kobuki_msgs::BumperEvent::ConstPtr& msg)
 
 void laserCallback(const sensor_msgs::LaserScan::ConstPtr& msg)
 {
-	//fill with your code
     minLaserDist= std::numeric_limits<float>::infinity();
     nLasers = (msg->angle_max - msg->angle_min)/msg->angle_increment;
     desiredNLasers = DEG2RAD(desiredAngle)/msg->angle_increment;
@@ -93,8 +92,7 @@ int main(int argc, char **argv)
     //define linear and angular speeds
     float angular = 0.0;
     float linear = 0.0;
-   
-   // int tightspace_counter = 0.0;
+    int tightspace_counter = 0.0;
     while(ros::ok() && secondsElapsed <= 480) {
         ros::spinOnce();
        
@@ -109,6 +107,7 @@ int main(int argc, char **argv)
         
         float oldyaw = 0.0;
         float spindirection = 0.0;
+	int tightspace_threshold = 4;
         
 
         //Angle Randomizer
@@ -125,7 +124,7 @@ int main(int argc, char **argv)
 
         
         //case 1: Super close to a wall
-        if(minLaserDist < 0.5 && !any_bumper_pressed){
+        if(minLaserDist < 0.5 && !any_bumper_pressed && tightspace_counter < tightspace_threshold){
             oldyaw = yaw;
            //++tightspace_counter;
             while (abs(yaw - oldyaw) < M_PI/8) {
@@ -140,22 +139,22 @@ int main(int argc, char **argv)
         } 
 
         //Case 2: Far away from the wall
-        else if(!any_bumper_pressed && minLaserDist > 0.7) {
-            //tightspace_counter = 0.0;
+        else if(!any_bumper_pressed && minLaserDist > 0.7 && tightspace_counter < tightspace_threshold) {
+            tightspace_counter = 0.0;
             angular = M_PI/(spindirection*5);
             linear = 0.25;
         }
         
         //Case 3: Medium 
-        else if(!any_bumper_pressed && minLaserDist > 0.46) {
-            //++tightspace_counter;
+        else if(!any_bumper_pressed && minLaserDist > 0.46 && tightspace_counter < tightspace_threshold) {
+            ++tightspace_counter;
             angular = 0.0;
             linear = 0.1;
         }
         
         //Case 4: We hit a wall
-        else if (any_bumper_pressed){
-            //++tightspace_counter;
+        else if (any_bumper_pressed && tightspace_counter < tightspace_threshold){
+            ++tightspace_counter;
             ROS_INFO("AHHHHHHHHHH HIT A WALL AAHHHHHHHHHH");
             float distance_travelled = 0.0;
             float start_x = posX;
@@ -186,20 +185,22 @@ int main(int argc, char **argv)
         }
 
         //Case 5: If it gets stuck
-        else {
-            break;
-            //tightspace_counter = 0.0;
-          /*while (minLaserDist < 0.5) {
-                angular = M_PI/12;
+        else if (tightspace_counter >= tightspace_threshold) {
+	ROS_INFO("TIGHTSPACEEEEEEEEEEEE");
+            tightspace_counter = 0.0;
+          while (minLaserDist < 0.5) {
+                angular = M_PI/20;
                 linear = 0.0;
                 vel.angular.z = angular;
                 vel.linear.x = linear;
                 vel_pub.publish(vel);
                 ros::spinOnce();
                 loop_rate.sleep();
-            }  
-            */     
+            }       
         }
+	    else {
+		    break;
+	}
 
         vel.angular.z = angular;
         vel.linear.x = linear;
