@@ -107,7 +107,7 @@ int main(int argc, char **argv)
         
         float oldyaw = 0.0;
         float spindirection = 0.0;
-	int tightspace_threshold = 4;
+	int tightspace_threshold = 20;
         
 
         //Angle Randomizer
