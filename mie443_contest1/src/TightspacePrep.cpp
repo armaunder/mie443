@@ -155,13 +155,13 @@ int main(int argc, char **argv)
         //Case 4: We hit a wall
         else if (any_bumper_pressed && tightspace_counter < tightspace_threshold){
             ++tightspace_counter;
-            ROS_INFO("AHHHHHHHHHH HIT A WALL AAHHHHHHHHHH");
+            ROS_INFO("Hit Wall");
             float distance_travelled = 0.0;
             float start_x = posX;
             float start_y = posY;
 
             while (distance_travelled < 0.15) {
-                ROS_INFO("Hit Wall 1");
+                ROS_INFO("Hit Wall Phase 1");
                 angular = 0.0;
                 linear = -0.15;
                 vel.angular.z = angular;
@@ -175,7 +175,7 @@ int main(int argc, char **argv)
             oldyaw = yaw;
 	    int recovery_counter = 0.0;
             while (abs(yaw - oldyaw) < M_PI/12 && recovery_counter < 40) {
-		ROS_INFO("Hit Wall 2");
+		ROS_INFO("Hit Wall Phase 2");
 		++recovery_counter;
                 angular = M_PI/spindirection;
                 linear = 0.0;
@@ -189,11 +189,10 @@ int main(int argc, char **argv)
 
         //Case 5: If it gets stuck
         else if (tightspace_counter >= tightspace_threshold) {
-	ROS_INFO("TIGHTSPACEEEEEEEEEEEE");
+	ROS_INFO("Tightspace_Code");
             tightspace_counter = 0.0;
-          while (minLaserDist < 0.5) {
-		ROS_INFO("Hit Wall 3");  
-                angular = M_PI/20;
+          while (minLaserDist < 0.5) { 
+                angular = M_PI/12;
                 linear = 0.0;
                 vel.angular.z = angular;
                 vel.linear.x = linear;
