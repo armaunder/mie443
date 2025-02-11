@@ -115,7 +115,7 @@ int main(int argc, char **argv)
         float angle_randomizer = (std::rand() % 6)+1;
         float spindirectionrand = (std::rand() % 25);
         ROS_INFO("Spindirection: %f",spindirectionrand);
-        if (spindirectionrand > 5){
+        if (spindirectionrand > 6){
             spindirection = 4;
         }
         else{
@@ -126,8 +126,8 @@ int main(int argc, char **argv)
         //case 1: Super close to a wall
         if(minLaserDist < 0.5 && !any_bumper_pressed && tightspace_counter < tightspace_threshold){
             oldyaw = yaw;
-           //++tightspace_counter;
-            while (abs(yaw - oldyaw) < M_PI/8) {
+            ++tightspace_counter;
+            while (abs(yaw - oldyaw) < M_PI/12) {
                 angular = M_PI/spindirection;
                 linear = 0.0;
                 vel.angular.z = angular;
@@ -141,14 +141,14 @@ int main(int argc, char **argv)
         //Case 2: Far away from the wall
         else if(!any_bumper_pressed && minLaserDist > 0.7 && tightspace_counter < tightspace_threshold) {
             tightspace_counter = 0.0;
-            angular = M_PI/(spindirection*5);
+            angular = 0.0;
             linear = 0.25;
         }
         
         //Case 3: Medium 
         else if(!any_bumper_pressed && minLaserDist > 0.46 && tightspace_counter < tightspace_threshold) {
             ++tightspace_counter;
-            angular = 0.0;
+            angular = M_PI/(spindirection*5);
             linear = 0.1;
         }
         
@@ -160,7 +160,7 @@ int main(int argc, char **argv)
             float start_x = posX;
             float start_y = posY;
 
-            while (distance_travelled < 0.1) {
+            while (distance_travelled < 0.15) {
                 ROS_INFO("Hit Wall 1");
                 angular = 0.0;
                 linear = -0.15;
@@ -173,7 +173,10 @@ int main(int argc, char **argv)
             }
             
             oldyaw = yaw;
-            while (abs(yaw - oldyaw) < M_PI/8) {
+	    int recovery_counter = 0.0;
+            while (abs(yaw - oldyaw) < M_PI/12 && recovery_counter < 40) {
+		ROS_INFO("Hit Wall 2");
+		++recovery_counter;
                 angular = M_PI/spindirection;
                 linear = 0.0;
                 vel.angular.z = angular;
@@ -189,6 +192,7 @@ int main(int argc, char **argv)
 	ROS_INFO("TIGHTSPACEEEEEEEEEEEE");
             tightspace_counter = 0.0;
           while (minLaserDist < 0.5) {
+		ROS_INFO("Hit Wall 3");  
                 angular = M_PI/20;
                 linear = 0.0;
                 vel.angular.z = angular;
